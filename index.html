@@ -25,12 +25,21 @@ button.ghost{background:var(--card);color:var(--text);border:1px solid var(--lin
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
 .card h2{margin:0 0 8px;font-size:16px;display:flex;justify-content:space-between;align-items:center}
 .tick{color:var(--accent);font-size:13px}
-input,textarea{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+input,textarea,select{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
 .row{display:flex;gap:8px}
-.row input{margin:0}
+.row input,.row select{margin:0}
 .hist{font-size:14px;color:var(--mute)}
 .hist b{color:var(--text)}
 .hist div{padding:8px 0;border-top:1px solid var(--line)}
+.sm{padding:8px 10px;font-size:14px}
+.favpanel{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px}
+.favpanel[hidden]{display:none}
+.favpanel label{display:flex;align-items:center;padding:7px 0;font-size:15px}
+.favpanel input{width:auto;margin:0 10px 0 0}
+.favpanel .row{margin-top:6px}
+.hist div[data-d]{cursor:pointer}
+#fl div{display:flex;justify-content:space-between;align-items:center;gap:8px}
+#wc{margin-top:4px}
 select{appearance:auto}
 #report{display:none}
 @media print{
@@ -54,12 +63,24 @@ body{background:#fff!important;color:#000!important}
 </div>
 <div id="banner"></div>
 <div id="meals"></div>
+<div class="card"><h2>📈 Weight trend</h2>
+<select id="wr"><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last year</option><option value="all">All time</option></select>
+<div id="wc"></div></div>
+<div class="card"><h2>🔎 Past days</h2>
+<div class="row" style="margin-bottom:8px"><input type="date" id="gd"><button class="ghost" id="gt">Today</button></div>
+<input type="text" id="sq" placeholder="Search meals (e.g. rice)">
+<div class="hist" id="sr"></div></div>
+<div class="card"><h2>★ Favourite meals</h2><div class="hist" id="fl"></div></div>
 <div class="card"><h2>Last 7 days</h2><div class="hist" id="hist"></div></div>
 <div class="card"><h2>Export records</h2>
-<select id="xr"><option value="week">Last week (7 days)</option><option value="month">Last month (30 days)</option><option value="year">Last year (365 days)</option><option value="custom">Custom date range</option></select>
+<select id="xr"><option value="week">Last week (7 days)</option><option value="month">Last month (30 days)</option><option value="year">Last year (365 days)</option><option value="all">All records (full backup)</option><option value="custom">Custom date range</option></select>
 <div class="row" id="xc" style="display:none;margin-bottom:8px"><input type="date" id="xs"><input type="date" id="xe"></div>
 <div class="row"><button id="xx">Excel</button><button class="ghost" id="xp">PDF</button></div>
 <div class="hist" id="xm" style="margin-top:8px"></div></div>
+<div class="card"><h2>Import records</h2>
+<div class="hist" style="margin-bottom:8px">Restore from an Excel (.xlsx) file exported by this app. Values for the same days and fields are overwritten; everything else is kept.</div>
+<input type="file" id="xi" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+<div class="hist" id="im" style="margin-top:8px"></div></div>
 </main>
 <div id="report"></div>
 <script>
@@ -70,42 +91,117 @@ function save(){try{localStorage.setItem("meallog",JSON.stringify(data))}catch(e
 function key(d){var m=d.getMonth()+1,x=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(x<10?"0":"")+x}
 var cur=new Date();cur.setHours(12,0,0,0);
 function isToday(){return key(cur)===key(new Date())}
+function cleanPct(v){var n=parseFloat(String(v).replace(",",".").replace(/[^0-9.]/g,""));if(isNaN(n))return "";return String(Math.min(100,Math.max(0,Math.round(n*10)/10)))}
+function cleanWt(v){var n=parseFloat(String(v).replace(",",".").replace(/[^0-9.]/g,""));if(isNaN(n))return "";return String(Math.min(500,Math.max(0,Math.round(n*10)/10)))}
+var favs=[];try{favs=JSON.parse(localStorage.getItem("mealfavs")||"[]")}catch(e){}
+function saveFavs(){try{localStorage.setItem("mealfavs",JSON.stringify(favs))}catch(e){}}
+function refreshFavs(){
+  document.querySelectorAll(".favpanel").forEach(function(p){p.hidden=true;p.innerHTML=""});
+  document.getElementById("fl").innerHTML=favs.length?favs.map(function(f,i){return '<div><span>'+esc(f)+'</span><button class="ghost sm" data-x="'+i+'">✕</button></div>'}).join(""):"No favourites yet. Type a meal and tap ☆ Fav.";
+}
+function backupDue(){
+  if(!Object.keys(data).length)return false;
+  var t=0;try{t=Number(localStorage.getItem("mealbackup")||0)}catch(e){}
+  return !t||Date.now()-t>7*864e5;
+}
+function renderChart(){
+  var rng=document.getElementById("wr").value,el=document.getElementById("wc");
+  var keys=Object.keys(data).filter(function(k){return data[k].wt!==undefined&&data[k].wt!==""}).sort();
+  if(rng!=="all"){var cut=new Date();cut.setHours(12,0,0,0);cut.setDate(cut.getDate()-Number(rng)+1);var ck=key(cut);keys=keys.filter(function(k){return k>=ck})}
+  if(keys.length<2){el.innerHTML='<div class="hist">Log your weight on at least two days to see the trend.</div>';return}
+  var vals=keys.map(function(k){return Number(data[k].wt)}),mn=Math.min.apply(null,vals),mx=Math.max.apply(null,vals),lo=mn,hi=mx;
+  if(mx-mn<1){var mid=(mx+mn)/2;mn=mid-.5;mx=mid+.5}
+  var pd=(mx-mn)*.15;mn-=pd;mx+=pd;
+  var W=320,H=150,L=34,R=10,T=10,B=22;
+  var tm=function(k){return new Date(k+"T12:00:00").getTime()},t0=tm(keys[0]),span=(tm(keys[keys.length-1])-t0)||1;
+  var px=function(k){return L+(tm(k)-t0)/span*(W-L-R)},py=function(v){return T+(1-(v-mn)/(mx-mn))*(H-T-B)};
+  var svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto" role="img" aria-label="Weight trend">';
+  [mn+pd,(mn+mx)/2,mx-pd].forEach(function(v){
+    svg+='<line x1="'+L+'" x2="'+(W-R)+'" y1="'+py(v).toFixed(1)+'" y2="'+py(v).toFixed(1)+'" style="stroke:var(--line)" stroke-width="1"/>'+
+    '<text x="'+(L-4)+'" y="'+(py(v)+3).toFixed(1)+'" text-anchor="end" font-size="9" style="fill:var(--mute)">'+v.toFixed(1)+'</text>';
+  });
+  svg+='<polyline fill="none" stroke-width="2" stroke-linejoin="round" style="stroke:var(--accent)" points="'+keys.map(function(k,i){return px(k).toFixed(1)+","+py(vals[i]).toFixed(1)}).join(" ")+'"/>';
+  keys.forEach(function(k,i){svg+='<circle cx="'+px(k).toFixed(1)+'" cy="'+py(vals[i]).toFixed(1)+'" r="'+(keys.length>45?1.5:3)+'" style="fill:var(--accent)"/>'});
+  var fd=function(k){return new Date(k+"T12:00:00").toLocaleDateString(undefined,{day:"numeric",month:"short"})};
+  svg+='<text x="'+L+'" y="'+(H-5)+'" font-size="9" style="fill:var(--mute)">'+fd(keys[0])+'</text><text x="'+(W-R)+'" y="'+(H-5)+'" text-anchor="end" font-size="9" style="fill:var(--mute)">'+fd(keys[keys.length-1])+'</text></svg>';
+  var ch=vals[vals.length-1]-vals[0];
+  el.innerHTML=svg+'<div class="hist" style="margin-top:6px">Latest <b>'+vals[vals.length-1]+' kg</b> · Change <b>'+(ch>0?"+":"")+ch.toFixed(1)+' kg</b> · Low '+lo+' · High '+hi+'</div>';
+}
+function goTo(iso){cur=new Date(iso+"T12:00:00");render();window.scrollTo(0,0)}
 function render(){
   var k=key(cur),day=data[k]||{};
   document.getElementById("title").innerHTML=(isToday()?"Today":cur.toLocaleDateString(undefined,{weekday:"long"}))+"<small>"+cur.toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"})+"</small>";
   var late=[],now=new Date().getHours();
   var html="";
   MEALS.forEach(function(m){
-    var e=day[m.k]||{text:"",kcal:""};
+    var e=day[m.k]||{text:""};
     if(isToday()&&!e.text&&now>=m.h)late.push(m.n.slice(3).toLowerCase());
     html+='<div class="card"><h2>'+m.n+(e.text?'<span class="tick">✓ Logged</span>':'')+'</h2>'+
     '<textarea rows="2" id="t_'+m.k+'" placeholder="What did you have?">'+esc(e.text)+'</textarea>'+
-    '<div class="row"><input id="c_'+m.k+'" type="number" inputmode="numeric" placeholder="Calories (optional)" value="'+esc(e.kcal)+'">'+
-    '<button data-k="'+m.k+'">Save</button></div></div>';
+    '<div class="row" style="margin-bottom:8px"><button class="ghost sm" data-y="'+m.k+'">⟲ Yesterday</button><button class="ghost sm" data-f="'+m.k+'">☆ Fav</button><button class="ghost sm" data-p="'+m.k+'">★ Favourites</button></div><div class="favpanel" id="fp_'+m.k+'" hidden></div>'+
+    '<div class="row">'+
+    '<button data-k="'+m.k+'" style="width:100%">Save</button></div></div>';
   });
+  html+='<div class="card"><h2>📊 Daily %'+(day.pct?'<span class="tick">✓ Saved</span>':'')+'</h2><div class="row"><input id="dp" type="text" inputmode="decimal" maxlength="5" placeholder="Enter % for the day (0-100)" value="'+esc(day.pct)+'"><button id="sp">Save</button></div></div>';
+  html+='<div class="card"><h2>⚖️ Weight (kg)'+(day.wt?'<span class="tick">✓ Saved</span>':'')+'</h2><div class="row"><input id="dw" type="text" inputmode="decimal" maxlength="6" placeholder="Enter weight in kg" value="'+esc(day.wt)+'"><button id="sw">Save</button></div></div>';
   document.getElementById("meals").innerHTML=html;
-  document.getElementById("banner").innerHTML=late.length?'<div class="banner">⏰ You haven’t logged '+late.join(", ")+' yet.</div>':"";
+  document.getElementById("banner").innerHTML=(late.length?'<div class="banner">⏰ You haven’t logged '+late.join(", ")+' yet.</div>':"")+(backupDue()?'<div class="banner">💾 Backup due: export Excel with “All records” and save it to Files.</div>':"");
   document.querySelectorAll("button[data-k]").forEach(function(b){b.onclick=function(){
     var mk=b.getAttribute("data-k");
     data[k]=data[k]||{};
-    data[k][mk]={text:document.getElementById("t_"+mk).value.trim(),kcal:document.getElementById("c_"+mk).value};
+    data[k][mk]={text:document.getElementById("t_"+mk).value.trim()};
     save();render();
   }});
+  document.querySelectorAll("button[data-y]").forEach(function(b){b.onclick=function(){
+    var mk=b.getAttribute("data-y"),y=new Date(cur);y.setDate(y.getDate()-1);
+    var pv=(data[key(y)]||{})[mk],ta=document.getElementById("t_"+mk);
+    if(pv&&pv.text)ta.value=pv.text;else ta.placeholder="Nothing logged for this meal the day before";
+  }});
+  document.querySelectorAll("button[data-f]").forEach(function(b){b.onclick=function(){
+    var t=document.getElementById("t_"+b.getAttribute("data-f")).value.trim();
+    if(!t)return;
+    if(!favs.some(function(f){return f.toLowerCase()===t.toLowerCase()})){favs.push(t);if(favs.length>50)favs.shift();saveFavs()}
+    refreshFavs();
+  }});
+  document.querySelectorAll("button[data-p]").forEach(function(b){b.onclick=function(){
+    var mk=b.getAttribute("data-p"),p=document.getElementById("fp_"+mk);
+    if(!p.hidden){p.hidden=true;p.innerHTML="";return}
+    if(!favs.length){p.innerHTML='<div class="hist">No favourites yet. Type a meal and tap ☆ Fav.</div>';p.hidden=false;return}
+    p.innerHTML=favs.map(function(f,i){return '<label><input type="checkbox" value="'+i+'"><span>'+esc(f)+'</span></label>'}).join("")+'<div class="row"><button class="sm" data-a="1">Add selected</button><button class="ghost sm" data-c="1">Cancel</button></div>';
+    p.hidden=false;
+  }});
+  document.querySelectorAll(".favpanel").forEach(function(p){p.onclick=function(e){
+    var t=e.target,mk=p.id.slice(3);
+    if(!t.getAttribute)return;
+    if(t.getAttribute("data-c")){p.hidden=true;p.innerHTML="";return}
+    if(t.getAttribute("data-a")){
+      var picks=[];
+      p.querySelectorAll("input:checked").forEach(function(c){var f=favs[Number(c.value)];if(f)picks.push(f)});
+      if(picks.length){
+        var ta=document.getElementById("t_"+mk),old=ta.value.trim().replace(/[,\s]+$/,"");
+        ta.value=(old?old+", ":"")+picks.join(", ");
+      }
+      p.hidden=true;p.innerHTML="";
+    }
+  }});
+  document.getElementById("gd").value=k;
+  document.getElementById("sp").onclick=function(){data[k]=data[k]||{};data[k].pct=cleanPct(document.getElementById("dp").value);save();render()};
+  document.getElementById("sw").onclick=function(){data[k]=data[k]||{};data[k].wt=cleanWt(document.getElementById("dw").value);save();render()};
   var h="";
   for(var i=0;i<7;i++){
     var d=new Date();d.setDate(d.getDate()-i);var dd=data[key(d)]||{};
     var done=MEALS.filter(function(m){return dd[m.k]&&dd[m.k].text}).length;
-    var kc=0;MEALS.forEach(function(m){if(dd[m.k]&&dd[m.k].kcal)kc+=Number(dd[m.k].kcal)||0});
-    h+='<div><b>'+d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+'</b> — '+done+'/3 meals'+(kc?' · '+kc+' kcal':'')+'</div>';
+    h+='<div><b>'+d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+'</b> — '+done+'/3 meals'+(dd.pct!==undefined&&dd.pct!==""?' · '+dd.pct+'%':'')+(dd.wt?' · '+dd.wt+' kg':'')+'</div>';
   }
   document.getElementById("hist").innerHTML=h;
+  renderChart();
 }
 function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;")}
 document.getElementById("prev").onclick=function(){cur.setDate(cur.getDate()-1);render()};
 document.getElementById("next").onclick=function(){if(!isToday()){cur.setDate(cur.getDate()+1);render()}};
 document.addEventListener("visibilitychange",function(){if(!document.hidden)render()});
 /* ---------- Export ---------- */
-var HEAD=["Date","Breakfast","Breakfast kcal","Lunch","Lunch kcal","Dinner","Dinner kcal","Total kcal"];
+var HEAD=["Date","Breakfast","Lunch","Dinner","Daily %","Weight (kg)"];
 document.getElementById("xs").value=key(new Date());
 document.getElementById("xe").value=key(new Date());
 document.getElementById("xr").onchange=function(){document.getElementById("xc").style.display=this.value==="custom"?"flex":"none"};
@@ -115,6 +211,7 @@ function getRows(){
   if(v==="week")start.setDate(start.getDate()-6);
   else if(v==="month")start.setDate(start.getDate()-29);
   else if(v==="year")start.setDate(start.getDate()-364);
+  else if(v==="all"){var ks=Object.keys(data).sort();if(ks.length)start=new Date(ks[0]+"T12:00:00")}
   else{
     var a=document.getElementById("xs").value,b=document.getElementById("xe").value;
     if(!a||!b)return null;
@@ -123,15 +220,18 @@ function getRows(){
   }
   var rows=[];
   for(var d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
-    var day=data[key(d)]||{},r=[key(d)],tot=0,any=false;
+    var day=data[key(d)]||{},r=[key(d)],any=false;
     MEALS.forEach(function(m){
       var e=day[m.k]||{};
       if(e.text)any=true;
-      var kc=e.kcal===""||e.kcal==null?"":Number(e.kcal);
-      if(kc!=="")tot+=kc;
-      r.push(e.text||"",kc);
+      r.push(e.text||"");
     });
-    r.push(tot||"");
+    var p=day.pct===""||day.pct==null?"":Number(day.pct);
+    if(p!=="")any=true;
+    r.push(p);
+    var w=day.wt===""||day.wt==null?"":Number(day.wt);
+    if(w!=="")any=true;
+    r.push(w);
     if(any)rows.push(r);
   }
   return {rows:rows,from:key(start),to:key(end)};
@@ -146,10 +246,8 @@ function getData(){
 function x(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
 function col(i){return String.fromCharCode(65+i)}
 function sheetXml(rows){
-  var all=[HEAD].concat(rows),total=0;
-  rows.forEach(function(r){total+=Number(r[7])||0});
-  all.push(["Total","","","","","","",total]);
-  var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="7" width="26" customWidth="1"/><col min="8" max="8" width="12" customWidth="1"/></cols><sheetData>';
+  var all=[HEAD].concat(rows);
+  var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="4" width="26" customWidth="1"/><col min="5" max="5" width="12" customWidth="1"/><col min="6" max="6" width="14" customWidth="1"/></cols><sheetData>';
   all.forEach(function(r,ri){
     xml+='<row r="'+(ri+1)+'">';
     r.forEach(function(c,ci){
@@ -208,24 +306,191 @@ document.getElementById("xx").onclick=function(){
     ["xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],
     ["xl/worksheets/sheet1.xml",sheetXml(o.rows)]
   ]);
+  if(document.getElementById("xr").value==="all"){try{localStorage.setItem("mealbackup",String(Date.now()))}catch(e){}}
   deliver(blob,"meal-log_"+o.from+"_to_"+o.to+".xlsx");
 };
+function pe(s){return String(s).replace(/\s+/g," ").replace(/[^\x20-\x7e\xa0-\xff]/g,"?").replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)")}
+function cw(c){
+  if("iljI.,;:'|!".indexOf(c)>=0)return .3;
+  if("ftrJ()[]- /\\".indexOf(c)>=0)return .36;
+  if("mwMW@%".indexOf(c)>=0)return .88;
+  if(c>="A"&&c<="Z")return .7;
+  return .56;
+}
+function tw(t,fs){var w=0;for(var i=0;i<t.length;i++)w+=cw(t[i]);return w*fs}
+function wrap(text,maxW,fs){
+  var words=String(text).replace(/\s+/g," ").trim().replace(/[^\x20-\x7e\xa0-\xff]/g,"?").split(" "),lines=[],cur="";
+  words.forEach(function(w){
+    while(tw(w,fs)>maxW){
+      var k=1;while(k<w.length&&tw(w.slice(0,k+1),fs)<=maxW)k++;
+      if(cur){lines.push(cur);cur=""}
+      lines.push(w.slice(0,k));w=w.slice(k);
+    }
+    var t=cur?cur+" "+w:w;
+    if(cur&&tw(t,fs)>maxW){lines.push(cur);cur=w}else cur=t;
+  });
+  lines.push(cur);
+  return lines;
+}
+function buildPdf(o){
+  var W=842,H=595,M=30,fs=9,lh=11,pad=3,cws=[62,210,210,210,45,45],pages=[],cur,y;
+  var head=["Date","Breakfast","Lunch","Dinner","Daily %","Weight (kg)"];
+  function txt(f,size,x,yy,t){cur.push("BT /"+f+" "+size+" Tf 1 0 0 1 "+x.toFixed(1)+" "+yy.toFixed(1)+" Tm ("+pe(t)+") Tj ET")}
+  function newPage(first){
+    cur=[];pages.push(cur);y=H-M;
+    if(first){txt("F2",14,M,y-14,"Meal Log");y-=20;txt("F1",10,M,y-10,o.from+" to "+o.to);y-=18}
+    drawRow(head,true,true);
+  }
+  function drawRow(cells,hd,nb){
+    var lines=cells.map(function(c,i){return wrap(String(c),cws[i]-2*pad,fs)});
+    var n=Math.max.apply(null,lines.map(function(l){return l.length})),h=n*lh+2*pad;
+    if(!nb&&y-h<M+16){newPage(false)}
+    var x=M,yb=y-h;
+    lines.forEach(function(ls,i){
+      cur.push((hd?"0.9 g ":"")+x+" "+yb+" "+cws[i]+" "+h+" re "+(hd?"f 0 g ":"")+"0.5 G "+x+" "+yb+" "+cws[i]+" "+h+" re S");
+      ls.forEach(function(l,k){if(l)txt(hd?"F2":"F1",fs,x+pad,y-pad-fs+1-k*lh,l)});
+      x+=cws[i];
+    });
+    y=yb;
+  }
+  newPage(true);
+  o.rows.forEach(function(r){
+    drawRow([r[0],r[1],r[2],r[3],r[4]!==""?r[4]+"%":"",r[5]!==""?String(r[5]):""],false,false);
+  });
+  var objs=[null,"<< /Type /Catalog /Pages 2 0 R >>",null,"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>","<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"];
+  objs[2]="<< /Type /Pages /Kids ["+pages.map(function(_,i){return (5+2*i)+" 0 R"}).join(" ")+"] /Count "+pages.length+" >>";
+  pages.forEach(function(ops,i){
+    cur=ops;txt("F1",8,W-M-50,15,"Page "+(i+1)+" of "+pages.length);
+    var st=ops.join("\n");
+    objs[5+2*i]="<< /Type /Page /Parent 2 0 R /MediaBox [0 0 "+W+" "+H+"] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents "+(6+2*i)+" 0 R >>";
+    objs[6+2*i]="<< /Length "+st.length+" >>\nstream\n"+st+"\nendstream";
+  });
+  var out="%PDF-1.4\n",offs=[],i;
+  for(i=1;i<objs.length;i++){offs[i]=out.length;out+=i+" 0 obj\n"+objs[i]+"\nendobj\n"}
+  var xr=out.length;
+  out+="xref\n0 "+objs.length+"\n0000000000 65535 f \n";
+  for(i=1;i<objs.length;i++)out+=("0000000000"+offs[i]).slice(-10)+" 00000 n \n";
+  out+="trailer\n<< /Size "+objs.length+" /Root 1 0 R >>\nstartxref\n"+xr+"\n%%EOF";
+  var u=new Uint8Array(out.length);
+  for(i=0;i<out.length;i++)u[i]=out.charCodeAt(i)&255;
+  return new Blob([u],{type:"application/pdf"});
+}
 document.getElementById("xp").onclick=function(){
   var o=getData();if(!o)return;
-  var tot=0,h='<h1>Meal Log</h1><p>'+o.from+' to '+o.to+'</p><table><tr>';
-  HEAD.forEach(function(c){h+='<th>'+c+'</th>'});
-  h+='</tr>';
-  o.rows.forEach(function(r){
-    tot+=Number(r[7])||0;
-    h+='<tr>';r.forEach(function(c){h+='<td>'+x(c)+'</td>'});h+='</tr>';
-  });
-  h+='<tr><th colspan="7">Total</th><th>'+tot+'</th></tr></table>';
-  document.getElementById("report").innerHTML=h;
-  document.body.classList.add("printing");
-  var done=function(){document.body.classList.remove("printing")};
-  window.addEventListener("afterprint",done,{once:true});
-  setTimeout(function(){window.print()},100);
+  try{deliver(buildPdf(o),"meal-log_"+o.from+"_to_"+o.to+".pdf")}
+  catch(e){msg("PDF export failed: "+(e&&e.message?e.message:e))}
 };
+/* ---------- Import ---------- */
+function unx(s){return s.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&quot;/g,'"').replace(/&apos;/g,"'").replace(/&amp;/g,"&")}
+function colIdx(ref){var m=/^[A-Z]+/.exec(ref)[0],n=0;for(var i=0;i<m.length;i++)n=n*26+m.charCodeAt(i)-64;return n-1}
+async function inflate(u8){
+  if(typeof DecompressionStream==="undefined")throw new Error("This file is compressed in a way this browser can't open. Please use the file exactly as exported by this app.");
+  var r=new Blob([u8]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+  return new Uint8Array(await new Response(r).arrayBuffer());
+}
+async function readZip(buf){
+  var u=new Uint8Array(buf),dv=new DataView(buf),i=u.length-22,out={};
+  while(i>=0&&dv.getUint32(i,true)!==0x06054b50)i--;
+  if(i<0)throw new Error("This is not a valid Excel (.xlsx) file.");
+  var n=dv.getUint16(i+10,true),p=dv.getUint32(i+16,true),dec=new TextDecoder();
+  for(var k=0;k<n;k++){
+    var m=dv.getUint16(p+10,true),cs=dv.getUint32(p+20,true),nl=dv.getUint16(p+28,true),el=dv.getUint16(p+30,true),cl=dv.getUint16(p+32,true),lo=dv.getUint32(p+42,true);
+    var name=dec.decode(u.subarray(p+46,p+46+nl));
+    var st=lo+30+dv.getUint16(lo+26,true)+dv.getUint16(lo+28,true);
+    out[name]={m:m,raw:u.subarray(st,st+cs)};
+    p+=46+nl+el+cl;
+  }
+  return out;
+}
+async function fileText(e){return new TextDecoder().decode(e.m===0?e.raw:await inflate(e.raw))}
+function texts(xml){var o=[],re=/<t\b[^>]*>([\s\S]*?)<\/t>/g,m;while((m=re.exec(xml)))o.push(unx(m[1]));return o.join("")}
+async function parseXlsx(buf){
+  var z=await readZip(buf),sn=Object.keys(z).filter(function(n){return /^xl\/worksheets\/sheet\d+\.xml$/.test(n)}).sort()[0];
+  if(!sn)throw new Error("No worksheet found in this file.");
+  var ss=[],m;
+  if(z["xl/sharedStrings.xml"]){
+    var sx=await fileText(z["xl/sharedStrings.xml"]),re=/<si\b[^>]*>([\s\S]*?)<\/si>/g;
+    while((m=re.exec(sx)))ss.push(texts(m[1]));
+  }
+  var xml=await fileText(z[sn]),rows=[],rr=/<row\b[^>]*>([\s\S]*?)<\/row>/g,rm;
+  while((rm=rr.exec(xml))){
+    var row=[],cr=/<c\b([^>]*?)(?:\/>|>([\s\S]*?)<\/c>)/g,cm;
+    while((cm=cr.exec(rm[1]))){
+      var at=cm[1],body=cm[2]||"",ref=/\br="([A-Z]+\d+)"/.exec(at),t=/\bt="(\w+)"/.exec(at),v;
+      if(!ref)continue;
+      if(t&&t[1]==="inlineStr")v=texts(body);
+      else{
+        var vm=/<v>([\s\S]*?)<\/v>/.exec(body);
+        if(!vm)continue;
+        v=unx(vm[1]);
+        if(t&&t[1]==="s")v=ss[Number(v)]||"";
+      }
+      row[colIdx(ref[1])]=v;
+    }
+    rows.push(row);
+  }
+  return rows;
+}
+function toIso(v){
+  v=String(v).trim();
+  var m=/^(\d{4}-\d{2}-\d{2})/.exec(v);
+  if(m)return m[1];
+  if(/^\d+(\.\d+)?$/.test(v)&&Number(v)>20000)return new Date(Date.UTC(1899,11,30)+Math.floor(Number(v))*864e5).toISOString().slice(0,10);
+  return null;
+}
+function applyRows(rows){
+  var hi=-1,map={};
+  for(var i=0;i<rows.length&&hi<0;i++){
+    (rows[i]||[]).forEach(function(c){if(String(c).trim().toLowerCase()==="date")hi=i});
+  }
+  if(hi<0)throw new Error("Couldn't find the Date column. Please use a file exported from this app.");
+  rows[hi].forEach(function(c,j){map[String(c).trim().toLowerCase()]=j});
+  var days=0;
+  for(var r=hi+1;r<rows.length;r++){
+    var row=rows[r]||[],iso=map.date==null?null:toIso(row[map.date]==null?"":row[map.date]);
+    if(!iso)continue;
+    var g=function(n){var j=map[n];return j==null||row[j]==null?"":String(row[j]).trim()};
+    var d=data[iso]=data[iso]||{};
+    MEALS.forEach(function(m){var t=g(m.k);if(t)d[m.k]={text:t}});
+    var p=cleanPct(g("daily %"));if(p!=="")d.pct=p;
+    var w=cleanWt(g("weight (kg)"));if(w!=="")d.wt=w;
+    days++;
+  }
+  return days;
+}
+document.getElementById("xi").onchange=async function(){
+  var f=this.files&&this.files[0],el=this,im=document.getElementById("im");
+  if(!f)return;
+  try{
+    if(/\.pdf$/i.test(f.name))throw new Error("PDF files can't be used to restore data. Please choose the Excel (.xlsx) file.");
+    var n=applyRows(await parseXlsx(await f.arrayBuffer()));
+    save();render();
+    im.textContent=n?"Imported "+n+" day"+(n===1?"":"s")+" from "+f.name+".":"No records found in "+f.name+".";
+  }catch(e){im.textContent="Import failed: "+(e&&e.message?e.message:e)}
+  el.value="";
+};
+document.getElementById("gd").max=key(new Date());
+document.getElementById("gd").onchange=function(){if(this.value)goTo(this.value)};
+document.getElementById("gt").onclick=function(){goTo(key(new Date()))};
+document.getElementById("wr").onchange=renderChart;
+document.getElementById("sq").oninput=function(){
+  var q=this.value.trim().toLowerCase(),el=document.getElementById("sr");
+  if(!q){el.innerHTML="";return}
+  var out=[],ks=Object.keys(data).sort().reverse();
+  for(var i=0;i<ks.length&&out.length<30;i++){
+    var d=data[ks[i]],hits=[];
+    MEALS.forEach(function(m){if(d[m.k]&&d[m.k].text&&d[m.k].text.toLowerCase().indexOf(q)>=0)hits.push(m.n.slice(3)+": "+d[m.k].text)});
+    if(hits.length)out.push('<div data-d="'+ks[i]+'"><b>'+ks[i]+'</b> — '+esc(hits.join(" · "))+'</div>');
+  }
+  el.innerHTML=out.length?out.join(""):"No matches.";
+};
+document.getElementById("sr").onclick=function(e){var d=e.target.closest&&e.target.closest("[data-d]");if(d)goTo(d.getAttribute("data-d"))};
+document.getElementById("fl").onclick=function(e){
+  var b=e.target.closest&&e.target.closest("button[data-x]");
+  if(!b)return;
+  favs.splice(Number(b.getAttribute("data-x")),1);saveFavs();refreshFavs();
+};
+refreshFavs();
 render();
 </script>
 </body>
