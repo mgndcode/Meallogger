@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meal Log">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Meal Log</title>
+<style>
+:root{--bg:#f6f5f1;--card:#fff;--text:#1d1d1b;--mute:#6e6d68;--line:#e4e2db;--accent:#2f7d5b;--warn:#fff3d6;--warnt:#7a5300;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#141413;--card:#201f1d;--text:#f1efe9;--mute:#9b988f;--line:#33312d;--accent:#5fc796;--warn:#3a2f12;--warnt:#f2cf79;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141413;--card:#201f1d;--text:#f1efe9;--mute:#9b988f;--line:#33312d;--accent:#5fc796;--warn:#3a2f12;--warnt:#f2cf79;color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+main{max-width:520px;margin:0 auto;padding:16px}
+.nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.nav h1{font-size:20px;margin:0;text-align:center}
+.nav small{display:block;color:var(--mute);font-weight:400;font-size:13px}
+button{font:inherit;border:0;border-radius:10px;padding:10px 14px;background:var(--accent);color:#fff;font-weight:600}
+button.ghost{background:var(--card);color:var(--text);border:1px solid var(--line)}
+.banner{background:var(--warn);color:var(--warnt);padding:10px 12px;border-radius:12px;margin-bottom:12px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{margin:0 0 8px;font-size:16px;display:flex;justify-content:space-between;align-items:center}
+.tick{color:var(--accent);font-size:13px}
+input,textarea{width:100%;font:inherit;color:var(--text);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px}
+.row{display:flex;gap:8px}
+.row input{margin:0}
+.hist{font-size:14px;color:var(--mute)}
+.hist b{color:var(--text)}
+.hist div{padding:8px 0;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<main>
+<div class="nav">
+<button class="ghost" id="prev" aria-label="Previous day">‹</button>
+<h1 id="title"></h1>
+<button class="ghost" id="next" aria-label="Next day">›</button>
+</div>
+<div id="banner"></div>
+<div id="meals"></div>
+<div class="card"><h2>Last 7 days</h2><div class="hist" id="hist"></div></div>
+</main>
+<script>
+var MEALS=[{k:"breakfast",n:"🍳 Breakfast",h:10},{k:"lunch",n:"🥗 Lunch",h:14},{k:"dinner",n:"🍝 Dinner",h:21}];
+var data={};
+try{data=JSON.parse(localStorage.getItem("meallog")||"{}")}catch(e){}
+function save(){try{localStorage.setItem("meallog",JSON.stringify(data))}catch(e){}}
+function key(d){var m=d.getMonth()+1,x=d.getDate();return d.getFullYear()+"-"+(m<10?"0":"")+m+"-"+(x<10?"0":"")+x}
+var cur=new Date();cur.setHours(12,0,0,0);
+function isToday(){return key(cur)===key(new Date())}
+function render(){
+  var k=key(cur),day=data[k]||{};
+  document.getElementById("title").innerHTML=(isToday()?"Today":cur.toLocaleDateString(undefined,{weekday:"long"}))+"<small>"+cur.toLocaleDateString(undefined,{month:"long",day:"numeric",year:"numeric"})+"</small>";
+  var late=[],now=new Date().getHours();
+  var html="";
+  MEALS.forEach(function(m){
+    var e=day[m.k]||{text:"",kcal:""};
+    if(isToday()&&!e.text&&now>=m.h)late.push(m.n.slice(3).toLowerCase());
+    html+='<div class="card"><h2>'+m.n+(e.text?'<span class="tick">✓ Logged</span>':'')+'</h2>'+
+    '<textarea rows="2" id="t_'+m.k+'" placeholder="What did you have?">'+esc(e.text)+'</textarea>'+
+    '<div class="row"><input id="c_'+m.k+'" type="number" inputmode="numeric" placeholder="Calories (optional)" value="'+esc(e.kcal)+'">'+
+    '<button data-k="'+m.k+'">Save</button></div></div>';
+  });
+  document.getElementById("meals").innerHTML=html;
+  document.getElementById("banner").innerHTML=late.length?'<div class="banner">⏰ You haven’t logged '+late.join(", ")+' yet.</div>':"";
+  document.querySelectorAll("button[data-k]").forEach(function(b){b.onclick=function(){
+    var mk=b.getAttribute("data-k");
+    data[k]=data[k]||{};
+    data[k][mk]={text:document.getElementById("t_"+mk).value.trim(),kcal:document.getElementById("c_"+mk).value};
+    save();render();
+  }});
+  var h="";
+  for(var i=0;i<7;i++){
+    var d=new Date();d.setDate(d.getDate()-i);var dd=data[key(d)]||{};
+    var done=MEALS.filter(function(m){return dd[m.k]&&dd[m.k].text}).length;
+    var kc=0;MEALS.forEach(function(m){if(dd[m.k]&&dd[m.k].kcal)kc+=Number(dd[m.k].kcal)||0});
+    h+='<div><b>'+d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"})+'</b> — '+done+'/3 meals'+(kc?' · '+kc+' kcal':'')+'</div>';
+  }
+  document.getElementById("hist").innerHTML=h;
+}
+function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;")}
+document.getElementById("prev").onclick=function(){cur.setDate(cur.getDate()-1);render()};
+document.getElementById("next").onclick=function(){if(!isToday()){cur.setDate(cur.getDate()+1);render()}};
+document.addEventListener("visibilitychange",function(){if(!document.hidden)render()});
+render();
+</script>
+</body>
+</html>
