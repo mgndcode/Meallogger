@@ -31,6 +31,18 @@ input,textarea{width:100%;font:inherit;color:var(--text);background:var(--bg);bo
 .hist{font-size:14px;color:var(--mute)}
 .hist b{color:var(--text)}
 .hist div{padding:8px 0;border-top:1px solid var(--line)}
+select{appearance:auto}
+#report{display:none}
+@media print{
+body.printing main{display:none}
+body.printing #report{display:block}
+body{background:#fff!important;color:#000!important}
+#report h1{font-size:16px;margin:0 0 4px}
+#report p{font-size:11px;margin:0 0 8px}
+#report table{width:100%;border-collapse:collapse;font-size:10px}
+#report td,#report th{border:1px solid #999;padding:3px 4px;text-align:left;vertical-align:top}
+#report th{background:#eee}
+}
 </style>
 </head>
 <body>
@@ -43,7 +55,13 @@ input,textarea{width:100%;font:inherit;color:var(--text);background:var(--bg);bo
 <div id="banner"></div>
 <div id="meals"></div>
 <div class="card"><h2>Last 7 days</h2><div class="hist" id="hist"></div></div>
+<div class="card"><h2>Export records</h2>
+<select id="xr"><option value="week">Last week (7 days)</option><option value="month">Last month (30 days)</option><option value="year">Last year (365 days)</option><option value="custom">Custom date range</option></select>
+<div class="row" id="xc" style="display:none;margin-bottom:8px"><input type="date" id="xs"><input type="date" id="xe"></div>
+<div class="row"><button id="xx">Excel</button><button class="ghost" id="xp">PDF</button></div>
+<div class="hist" id="xm" style="margin-top:8px"></div></div>
 </main>
+<div id="report"></div>
 <script>
 var MEALS=[{k:"breakfast",n:"🍳 Breakfast",h:10},{k:"lunch",n:"🥗 Lunch",h:14},{k:"dinner",n:"🍝 Dinner",h:21}];
 var data={};
@@ -86,6 +104,128 @@ function esc(s){return String(s||"").replace(/&/g,"&amp;").replace(/"/g,"&quot;"
 document.getElementById("prev").onclick=function(){cur.setDate(cur.getDate()-1);render()};
 document.getElementById("next").onclick=function(){if(!isToday()){cur.setDate(cur.getDate()+1);render()}};
 document.addEventListener("visibilitychange",function(){if(!document.hidden)render()});
+/* ---------- Export ---------- */
+var HEAD=["Date","Breakfast","Breakfast kcal","Lunch","Lunch kcal","Dinner","Dinner kcal","Total kcal"];
+document.getElementById("xs").value=key(new Date());
+document.getElementById("xe").value=key(new Date());
+document.getElementById("xr").onchange=function(){document.getElementById("xc").style.display=this.value==="custom"?"flex":"none"};
+function getRows(){
+  var v=document.getElementById("xr").value,end=new Date(),start=new Date();
+  end.setHours(12,0,0,0);start.setHours(12,0,0,0);
+  if(v==="week")start.setDate(start.getDate()-6);
+  else if(v==="month")start.setDate(start.getDate()-29);
+  else if(v==="year")start.setDate(start.getDate()-364);
+  else{
+    var a=document.getElementById("xs").value,b=document.getElementById("xe").value;
+    if(!a||!b)return null;
+    start=new Date(a+"T12:00:00");end=new Date(b+"T12:00:00");
+    if(start>end){var t=start;start=end;end=t}
+  }
+  var rows=[];
+  for(var d=new Date(start);d<=end;d.setDate(d.getDate()+1)){
+    var day=data[key(d)]||{},r=[key(d)],tot=0,any=false;
+    MEALS.forEach(function(m){
+      var e=day[m.k]||{};
+      if(e.text)any=true;
+      var kc=e.kcal===""||e.kcal==null?"":Number(e.kcal);
+      if(kc!=="")tot+=kc;
+      r.push(e.text||"",kc);
+    });
+    r.push(tot||"");
+    if(any)rows.push(r);
+  }
+  return {rows:rows,from:key(start),to:key(end)};
+}
+function msg(s){document.getElementById("xm").textContent=s}
+function getData(){
+  var o=getRows();
+  if(!o){msg("Please choose both dates.");return null}
+  if(!o.rows.length){msg("No entries found in this range.");return null}
+  msg("");return o;
+}
+function x(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;")}
+function col(i){return String.fromCharCode(65+i)}
+function sheetXml(rows){
+  var all=[HEAD].concat(rows),total=0;
+  rows.forEach(function(r){total+=Number(r[7])||0});
+  all.push(["Total","","","","","","",total]);
+  var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="12" customWidth="1"/><col min="2" max="7" width="26" customWidth="1"/><col min="8" max="8" width="12" customWidth="1"/></cols><sheetData>';
+  all.forEach(function(r,ri){
+    xml+='<row r="'+(ri+1)+'">';
+    r.forEach(function(c,ci){
+      var ref=col(ci)+(ri+1);
+      if(c===""||c==null)return;
+      if(typeof c==="number")xml+='<c r="'+ref+'"><v>'+c+'</v></c>';
+      else xml+='<c r="'+ref+'" t="inlineStr"><is><t>'+x(c)+'</t></is></c>';
+    });
+    xml+='</row>';
+  });
+  return xml+'</sheetData></worksheet>';
+}
+function crc(b){
+  var t=crc.t,c,n,k;
+  if(!t){t=crc.t=[];for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}
+  var r=-1;for(var i=0;i<b.length;i++)r=t[(r^b[i])&255]^(r>>>8);
+  return (r^-1)>>>0;
+}
+function zip(files){
+  var enc=new TextEncoder(),parts=[],cd=[],off=0;
+  files.forEach(function(f){
+    var nm=enc.encode(f[0]),dt=enc.encode(f[1]),c=crc(dt);
+    var h=new DataView(new ArrayBuffer(30));
+    h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(12,0x21,true);
+    h.setUint32(14,c,true);h.setUint32(18,dt.length,true);h.setUint32(22,dt.length,true);h.setUint16(26,nm.length,true);
+    parts.push(h.buffer,nm,dt);
+    var g=new DataView(new ArrayBuffer(46));
+    g.setUint32(0,0x02014b50,true);g.setUint16(4,20,true);g.setUint16(6,20,true);g.setUint16(14,0x21,true);
+    g.setUint32(16,c,true);g.setUint32(20,dt.length,true);g.setUint32(24,dt.length,true);g.setUint16(28,nm.length,true);g.setUint32(42,off,true);
+    cd.push(g.buffer,nm);
+    off+=30+nm.length+dt.length;
+  });
+  var size=0;cd.forEach(function(p){size+=p.byteLength||p.length});
+  var e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,size,true);e.setUint32(16,off,true);
+  return new Blob(parts.concat(cd,[e.buffer]),{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+}
+function deliver(blob,name){
+  var f=null;
+  try{f=new File([blob],name,{type:blob.type})}catch(e){}
+  if(f&&navigator.canShare&&navigator.canShare({files:[f]})){
+    navigator.share({files:[f],title:name}).catch(function(){});
+    return;
+  }
+  var a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();
+  setTimeout(function(){a.remove()},500);
+}
+document.getElementById("xx").onclick=function(){
+  var o=getData();if(!o)return;
+  var blob=zip([
+    ["[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],
+    ["_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ["xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Meal Log" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+    ["xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],
+    ["xl/worksheets/sheet1.xml",sheetXml(o.rows)]
+  ]);
+  deliver(blob,"meal-log_"+o.from+"_to_"+o.to+".xlsx");
+};
+document.getElementById("xp").onclick=function(){
+  var o=getData();if(!o)return;
+  var tot=0,h='<h1>Meal Log</h1><p>'+o.from+' to '+o.to+'</p><table><tr>';
+  HEAD.forEach(function(c){h+='<th>'+c+'</th>'});
+  h+='</tr>';
+  o.rows.forEach(function(r){
+    tot+=Number(r[7])||0;
+    h+='<tr>';r.forEach(function(c){h+='<td>'+x(c)+'</td>'});h+='</tr>';
+  });
+  h+='<tr><th colspan="7">Total</th><th>'+tot+'</th></tr></table>';
+  document.getElementById("report").innerHTML=h;
+  document.body.classList.add("printing");
+  var done=function(){document.body.classList.remove("printing")};
+  window.addEventListener("afterprint",done,{once:true});
+  setTimeout(function(){window.print()},100);
+};
 render();
 </script>
 </body>
