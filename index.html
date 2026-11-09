@@ -105,8 +105,12 @@ body{background:#fff!important;color:#000!important}
 .mute{color:var(--mute);font-weight:400;font-size:13px}
 #title{cursor:pointer;-webkit-user-select:none;user-select:none}
 .caret{font-size:14px;opacity:.9}
-.apptitle{text-align:center;font-weight:800;font-size:22px;color:var(--accent);margin:2px 0 10px;letter-spacing:.3px}
-.apptitle small{font-size:12px;font-weight:600;color:var(--mute);margin-left:4px;letter-spacing:0}
+.apptitle{text-align:center;font-weight:800;font-size:34px;line-height:1.1;color:var(--accent);margin:0 0 12px;letter-spacing:.3px}
+.apptitle small{font-size:14px;font-weight:600;color:var(--mute);margin-left:6px;letter-spacing:0}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.pair .card{margin-bottom:0;padding:12px;min-width:0}
+.pair h2{font-size:14px}
+.pair button.sv{width:100%;height:38px;font-size:13px}
 </style>
 </head>
 <body>
@@ -126,9 +130,6 @@ body{background:#fff!important;color:#000!important}
 <div class="card c-t"><h2>📈 Weight trend</h2>
 <select id="wr"><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last year</option><option value="all">All time</option></select>
 <div id="wc"></div></div>
-<div class="card c-n"><h2><span>📝 Notes <span class="mute" id="nd"></span></span></h2>
-<textarea id="nt" rows="3" maxlength="1000" placeholder="Notes for this day (e.g. felt bloated, ate out)"></textarea>
-<div class="btnrow"><button class="sv" id="sn">Save</button><button class="ghost" id="cn">Clear</button></div></div>
 <div class="card c-s"><h2><span>📋 Summary</span><button class="ghost sm" id="smt" aria-expanded="false">Show</button></h2>
 <div id="smbody" hidden>
 <select id="sm"><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select>
@@ -347,8 +348,11 @@ function render(){
     '<textarea id="t_'+m.k+'" placeholder="What did you have?" style="margin:0;height:88px;resize:none">'+esc(e.text)+'</textarea><div class="col"><button class="sv" data-k="'+m.k+'">Save</button><button class="ghost" data-z="'+m.k+'">Clear</button><button class="ghost" data-f="'+m.k+'">Add to Fav</button><button class="ghost" data-p="'+m.k+'">★ Favourites</button></div><div class="favpanel" id="fp_'+m.k+'" hidden></div>'+
     '</div>';
   });
-  html+='<div class="card c-p"><h2>📊 Daily %'+(day.pct?'<span class="tick">✓ Saved</span>':'')+'</h2><div class="row"><input id="dp" type="text" inputmode="decimal" maxlength="5" placeholder="Enter % for the day (0-100)" value="'+esc(day.pct)+'"><button class="sv" id="sp">Save</button></div></div>';
-  html+='<div class="card c-w"><h2>⚖️ Weight (kg)'+(day.wt?'<span class="tick">✓ Saved</span>':'')+'</h2><div class="row"><input id="dw" type="text" inputmode="decimal" maxlength="6" placeholder="Enter weight in kg" value="'+esc(day.wt)+'"><button class="sv" id="sw">Save</button></div></div>';
+  html+='<div class="card c-n"><h2><span>📝 Notes <span class="mute" id="nd"></span></span></h2>'+
+  '<textarea id="nt" rows="3" maxlength="1000" placeholder="Notes for this day (e.g. felt bloated, ate out)"></textarea>'+
+  '<div class="btnrow"><button class="sv" id="sn">Save</button><button class="ghost" id="cn">Clear</button></div></div>';
+  html+='<div class="pair"><div class="card c-p"><h2>📊 Daily %'+(day.pct?'<span class="tick">✓</span>':'')+'</h2><input id="dp" type="text" inputmode="decimal" maxlength="5" placeholder="0-100 %" value="'+esc(day.pct)+'"><button class="sv" id="sp">Save</button></div>'+
+  '<div class="card c-w"><h2>⚖️ Weight (kg)'+(day.wt?'<span class="tick">✓</span>':'')+'</h2><input id="dw" type="text" inputmode="decimal" maxlength="6" placeholder="e.g. 72.5" value="'+esc(day.wt)+'"><button class="sv" id="sw">Save</button></div></div>';
   document.getElementById("meals").innerHTML=html;
   document.querySelectorAll("button[data-k]").forEach(function(b){
     var mk=b.getAttribute("data-k"),ta=document.getElementById("t_"+mk);
@@ -408,12 +412,12 @@ function render(){
   sp.onclick=function(){
     var v=cleanPct(dp.value);dp.value=v;
     data[k]=data[k]||{};data[k].pct=v;
-    save();setTick(sp,v!=="","✓ Saved");flashSaved(sp);renderSide();
+    save();setTick(sp,v!=="","✓");flashSaved(sp);renderSide();
   };
   sw.onclick=function(){
     var v=cleanWt(dw.value);dw.value=v;
     data[k]=data[k]||{};data[k].wt=v;
-    save();setTick(sw,v!=="","✓ Saved");flashSaved(sw);renderSide();
+    save();setTick(sw,v!=="","✓");flashSaved(sw);renderSide();
   };
   var nt=document.getElementById("nt"),sn=document.getElementById("sn");
   nt.value=day.note||"";
