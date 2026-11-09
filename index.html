@@ -126,10 +126,12 @@ body{background:#fff!important;color:#000!important}
 <div class="card c-n"><h2><span>📝 Notes <span class="mute" id="nd"></span></span></h2>
 <textarea id="nt" rows="3" maxlength="1000" placeholder="Notes for this day (e.g. felt bloated, ate out)"></textarea>
 <div class="btnrow"><button class="sv" id="sn">Save</button><button class="ghost" id="cn">Clear</button></div></div>
-<div class="card c-s"><h2>📋 Summary</h2>
+<div class="card c-s"><h2><span>📋 Summary</span><button class="ghost sm" id="smt" aria-expanded="false">Show</button></h2>
+<div id="smbody" hidden>
 <select id="sm"><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select>
-<div class="tiles" id="st"></div></div>
-<div class="card c-f"><h2>★ Favourite meals</h2><div class="hist" id="fl"></div></div>
+<div class="tiles" id="st"></div></div></div>
+<div class="card c-f"><h2><span>★ Favourite meals</span><button class="ghost sm" id="ft" aria-expanded="false">Show</button></h2>
+<div id="flbody" hidden><div class="hist" id="fl" style="margin-top:8px"></div></div></div>
 <div class="group" id="recgroup">
 <div class="grouphead"><h3>Records</h3><button class="ghost sm" id="rt" aria-expanded="false">Show</button></div>
 <div id="recbody" hidden>
@@ -802,6 +804,18 @@ document.getElementById("rh").onclick=function(){
 document.getElementById("title").onclick=function(){setCal(document.getElementById("calpanel").hidden)};
 document.getElementById("title").onkeydown=function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();setCal(document.getElementById("calpanel").hidden)}};
 document.getElementById("ctd").onclick=function(){goTo(key(new Date()))};
+document.getElementById("smt").onclick=function(){
+  var b=document.getElementById("smbody");
+  b.hidden=!b.hidden;
+  this.textContent=b.hidden?"Show":"Hide";
+  this.setAttribute("aria-expanded",b.hidden?"false":"true");
+};
+document.getElementById("ft").onclick=function(){
+  var b=document.getElementById("flbody");
+  b.hidden=!b.hidden;
+  this.textContent=b.hidden?"Show":"Hide";
+  this.setAttribute("aria-expanded",b.hidden?"false":"true");
+};
 document.getElementById("sm").onchange=renderSummary;
 document.getElementById("calp").onclick=function(){calM.setMonth(calM.getMonth()-1);renderCal()};
 document.getElementById("caln").onclick=function(){calM.setMonth(calM.getMonth()+1);renderCal()};
