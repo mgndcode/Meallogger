@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Meal Log">
+<meta name="apple-mobile-web-app-title" content="MealLog">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<title>Meal Log</title>
+<title>MealLog v1.0</title>
 <link rel="apple-touch-icon" href="icon.png">
 <link rel="icon" href="icon.png">
 <style>
@@ -105,10 +105,13 @@ body{background:#fff!important;color:#000!important}
 .mute{color:var(--mute);font-weight:400;font-size:13px}
 #title{cursor:pointer;-webkit-user-select:none;user-select:none}
 .caret{font-size:14px;opacity:.9}
+.apptitle{text-align:center;font-weight:800;font-size:22px;color:var(--accent);margin:2px 0 10px;letter-spacing:.3px}
+.apptitle small{font-size:12px;font-weight:600;color:var(--mute);margin-left:4px;letter-spacing:0}
 </style>
 </head>
 <body>
 <main>
+<div class="apptitle">MealLog <small>v1.0</small></div>
 <div class="nav">
 <button class="ghost" id="prev" aria-label="Previous day">‹</button>
 <h1 id="title" role="button" tabindex="0" aria-expanded="false"></h1>
