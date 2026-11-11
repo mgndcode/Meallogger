@@ -112,6 +112,7 @@ body{background:#fff!important;color:#000!important}
 .pair h2{font-size:14px}
 .pair button.sv{width:100%;height:38px;font-size:13px}
 .hr{display:flex;align-items:center;gap:8px}
+.subhead{margin:14px 0 4px;padding-top:12px;border-top:1px solid var(--line);font-weight:700;font-size:15px}
 .apptitle{position:relative}
 .info{position:absolute;right:0;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;padding:0;font-size:17px;font-weight:700;line-height:1;letter-spacing:0}
 #info{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -151,10 +152,15 @@ body{background:#fff!important;color:#000!important}
 <div class="tiles" id="st"></div></div></div>
 <div class="card c-f"><h2><span>★ Favourite meals</span><button class="ghost sm" id="ft" aria-expanded="false">Show</button></h2>
 <div id="flbody" hidden><div class="hist" id="fl" style="margin-top:8px"></div>
+<div class="subhead">📤 Export favourites</div>
+<div class="hist">Save your favourites list to an Excel file.</div>
 <button class="xb" id="fx" style="width:100%;margin-top:8px">Export to Excel</button>
-<div class="hist" style="margin-top:8px">Import from an Excel file:</div>
-<input type="file" id="fi" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="margin-top:4px">
-<div class="hist" id="fm" style="margin-top:2px"></div></div></div>
+<div class="hist" id="fxd" style="margin-top:6px" hidden></div>
+<div class="hist" id="fxm" style="margin-top:2px"></div>
+<div class="subhead">📥 Import favourites</div>
+<div class="hist">Add favourites from an Excel file exported by this app. Your existing favourites are kept.</div>
+<input type="file" id="fi" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="margin-top:8px">
+<div class="hist" id="fim" style="margin-top:2px"></div></div></div>
 <div class="group" id="recgroup">
 <div class="grouphead"><h3>Records</h3><button class="ghost sm" id="rt" aria-expanded="false">Show</button></div>
 <div id="recbody" hidden>
@@ -926,6 +932,12 @@ document.getElementById("tl").onclick=function(e){
 document.getElementById("te").onclick=function(){
   dlg("Permanently delete everything in Recently Deleted? This can't be undone.",false,"Empty",function(){trash=[];saveTrash();renderTrash();document.getElementById("tmsg").textContent=""});
 };
+function showFavExport(){
+  var t=0,el=document.getElementById("fxd");
+  try{t=Number(localStorage.getItem("mealfavexport")||0)}catch(e){}
+  if(t){el.textContent="📅 Last exported: "+new Date(t).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});el.hidden=false}
+  else el.hidden=true;
+}
 function showBackup(){
   var bk=0,el=document.getElementById("lb");
   try{bk=Number(localStorage.getItem("mealbackup")||0)}catch(e){}
@@ -954,16 +966,16 @@ document.getElementById("infox").onclick=closeInfo;
 document.getElementById("info").onclick=function(e){if(e.target===this)closeInfo()};
 document.addEventListener("keydown",function(e){if(e.key==="Escape")closeInfo()});
 document.getElementById("fx").onclick=function(){
-  var btn=this,fm=document.getElementById("fm");
+  var btn=this,fm=document.getElementById("fxm");
   if(!favs.length){fm.textContent="No favourites to export yet.";setBtn(btn,"");return}
   fm.textContent="";setBtn(btn,"busy");
   setTimeout(function(){
-    try{deliver(zip(xlsxFiles(favSheetXml(favs),"Favourites")),"meal-log_favourites_"+key(new Date())+".xlsx","fm");setBtn(btn,"ready")}
+    try{try{localStorage.setItem("mealfavexport",String(Date.now()))}catch(e2){}deliver(zip(xlsxFiles(favSheetXml(favs),"Favourites")),"meal-log_favourites_"+key(new Date())+".xlsx","fxm");showFavExport();setBtn(btn,"ready")}
     catch(e){fm.textContent="Export failed: "+(e&&e.message?e.message:e);setBtn(btn,"")}
   },80);
 };
 document.getElementById("fi").onchange=async function(){
-  var f=this.files&&this.files[0],el=this,fm=document.getElementById("fm");
+  var f=this.files&&this.files[0],el=this,fm=document.getElementById("fim");
   if(!f)return;
   try{
     if(/\.pdf$/i.test(f.name))throw new Error("Please choose an Excel (.xlsx) file.");
@@ -987,6 +999,7 @@ document.getElementById("fi").onchange=async function(){
   el.value="";
 };
 showBackup();
+showFavExport();
 refreshFavs();
 render();
 </script>
