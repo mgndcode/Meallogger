@@ -111,11 +111,25 @@ body{background:#fff!important;color:#000!important}
 .pair .card{margin-bottom:0;padding:12px;min-width:0}
 .pair h2{font-size:14px}
 .pair button.sv{width:100%;height:38px;font-size:13px}
+.hr{display:flex;align-items:center;gap:8px}
+.apptitle{position:relative}
+.info{position:absolute;right:0;top:50%;transform:translateY(-50%);width:34px;height:34px;border-radius:50%;padding:0;font-size:17px;font-weight:700;line-height:1;letter-spacing:0}
+#info{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.ibox{background:var(--card);border:1px solid var(--line);border-radius:16px;width:100%;max-width:420px;max-height:80vh;display:flex;flex-direction:column;overflow:hidden}
+.ihead{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:12px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:6px}
+.tab{background:var(--gbg);color:var(--text);border:1px solid var(--gb);padding:8px 16px;font-size:14px}
+.tab.on{background:var(--accent);border-color:var(--accent);color:var(--onacc)}
+.ibody{padding:14px;overflow-y:auto;-webkit-overflow-scrolling:touch;font-size:14px;line-height:1.5}
+.ibody h4{margin:14px 0 4px;font-size:15px}
+.ibody h4:first-child{margin-top:0}
+.ibody p,.ibody ul{margin:0 0 6px}
+.ibody ul{padding-left:18px}
 </style>
 </head>
 <body>
 <main>
-<div class="apptitle">MealLog <small>v1.0</small></div>
+<div class="apptitle">MealLog <small>v1.0</small><button class="ghost info" id="infob" aria-label="Help and About">?</button></div>
 <div class="nav">
 <button class="ghost" id="prev" aria-label="Previous day">‹</button>
 <h1 id="title" role="button" tabindex="0" aria-expanded="false"></h1>
@@ -127,9 +141,10 @@ body{background:#fff!important;color:#000!important}
 <div class="row" style="margin-top:8px;align-items:center;justify-content:space-between"><div class="legend" style="margin:0">Light = some meals · Green = all 3 meals</div><button class="ghost sm" id="ctd">Today</button></div></div>
 <div id="banner"></div>
 <div id="meals"></div>
-<div class="card c-t"><h2>📈 Weight trend</h2>
+<div class="card c-t"><h2><span>📈 Weight trend</span><button class="ghost sm" id="wtt" aria-expanded="false">Show</button></h2>
+<div id="wtbody" hidden>
 <select id="wr"><option value="30">Last 30 days</option><option value="90">Last 90 days</option><option value="365">Last year</option><option value="all">All time</option></select>
-<div id="wc"></div></div>
+<div id="wc"></div></div></div>
 <div class="card c-s"><h2><span>📋 Summary</span><button class="ghost sm" id="smt" aria-expanded="false">Show</button></h2>
 <div id="smbody" hidden>
 <select id="sm"><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select>
@@ -146,6 +161,7 @@ body{background:#fff!important;color:#000!important}
 <select id="xr"><option value="week">Last week (7 days)</option><option value="month">Last month (30 days)</option><option value="year">Last year (365 days)</option><option value="all">All records (full backup)</option><option value="custom">Custom date range</option></select>
 <div class="row" id="xc" style="display:none;margin-bottom:8px"><input type="date" id="xs"><input type="date" id="xe"></div>
 <div class="row"><button class="xb" id="xx">Excel</button><button class="xb" id="xp">PDF</button></div>
+<div class="hist" id="lb" style="margin-top:8px" hidden></div>
 <div class="hist" id="xm" style="margin-top:8px"></div></div>
 <div class="card c-i"><h2>Import Records</h2>
 <div class="hist" style="margin-bottom:8px">Restore from an Excel (.xlsx) file exported by this app. Values for the same days and fields are overwritten; everything else is kept.</div>
@@ -168,6 +184,43 @@ body{background:#fff!important;color:#000!important}
 </main>
 <div id="report"></div>
 <div id="dlg"></div>
+<div id="info" hidden>
+<div class="ibox" role="dialog" aria-modal="true" aria-label="Help and About">
+<div class="ihead"><div class="tabs"><button class="tab on" id="tabh">Help</button><button class="tab" id="taba">About</button></div><button class="ghost sm" id="infox" aria-label="Close">✕</button></div>
+<div class="ibody" id="ihelp">
+<h4>Log a day</h4>
+<p>Type what you ate in Breakfast, Lunch or Dinner and tap <b>Save</b>. You can put each item on its own line. <b>Clear</b> removes the saved meal. Daily % (0–100) and Weight (kg) are one entry per day, each with its own Save button.</p>
+<h4>Favourites</h4>
+<p><b>Add to Fav</b> saves the text in the box to your favourites, kept in A–Z order. <b>★ Favourites</b> lets you tick several and add them to the box. Manage the list in the Favourite meals card.</p>
+<h4>Go to another day</h4>
+<p>Tap the green <b>Today ▾</b> bar to open the calendar and pick any date, or use the ‹ › arrows. Dark green days have all 3 meals, light green days have some.</p>
+<h4>Notes, Summary and Weight trend</h4>
+<p>Open them with <b>Show</b>. Notes holds one note per day. Summary shows streaks and averages. Weight trend charts your weight.</p>
+<h4>Records (red box)</h4>
+<ul>
+<li><b>Search</b> finds every day you ate a keyword. It also searches notes.</li>
+<li><b>Export</b> makes an Excel or PDF file for a week, month, year, all records or custom dates.</li>
+<li><b>Import</b> restores data from an Excel file exported by this app.</li>
+<li><b>Delete</b> removes a date, a date range or everything. Deleted days stay in <b>Recently Deleted</b> for 30 days, and you can tap Restore.</li>
+</ul>
+<h4>Buttons</h4>
+<p>Save, Excel and PDF are grey. A green border means it is working and a fully green button means it is done. If you edit the text again, Save turns grey.</p>
+<h4>Back up your data</h4>
+<p>Your entries are stored only on this phone. About once a week, export <b>All records</b> as Excel and keep the file in Files or iCloud. If your data is ever lost, use Import to restore it.</p>
+<h4>Not showing the latest version?</h4>
+<p>Close the app fully and reopen it. If it still looks old, open the web address once in Safari and refresh. Don’t clear Safari’s website data, because that deletes your entries.</p>
+</div>
+<div class="ibody" id="iabout" hidden>
+<h4>MealLog v1.0</h4>
+<p>A simple personal meal log for iPhone: meals, Daily %, weight, notes, search and exports.</p>
+<h4>Your data</h4>
+<p>Everything is stored on this device, in the browser’s local storage. There is no account and nothing is sent anywhere. Removing the app from the Home Screen or clearing website data erases it, so keep your backups.</p>
+<ul id="istats"></ul>
+<h4>Built with</h4>
+<p>Created with Claude (Anthropic) as a single web page and hosted on GitHub Pages.</p>
+</div>
+</div>
+</div>
 <script>
 var MEALS=[{k:"breakfast",n:"🍳 Breakfast",h:10},{k:"lunch",n:"🥗 Lunch",h:14},{k:"dinner",n:"🍝 Dinner",h:21}];
 var data={};
@@ -179,6 +232,8 @@ function isToday(){return key(cur)===key(new Date())}
 function cleanPct(v){var n=parseFloat(String(v).replace(",",".").replace(/[^0-9.]/g,""));if(isNaN(n))return "";return String(Math.min(100,Math.max(0,Math.round(n*10)/10)))}
 function cleanWt(v){var n=parseFloat(String(v).replace(",",".").replace(/[^0-9.]/g,""));if(isNaN(n))return "";return String(Math.min(500,Math.max(0,Math.round(n*10)/10)))}
 var favs=[];try{favs=JSON.parse(localStorage.getItem("mealfavs")||"[]")}catch(e){}
+function sortFavs(){favs.sort(function(a,b){return String(a).localeCompare(String(b),undefined,{sensitivity:"base"})})}
+sortFavs();
 function saveFavs(){try{localStorage.setItem("mealfavs",JSON.stringify(favs))}catch(e){}}
 function refreshFavs(){
   document.querySelectorAll(".favpanel").forEach(function(p){p.hidden=true;p.innerHTML=""});
@@ -327,10 +382,11 @@ function setCal(open){
 function goTo(iso){cur=new Date(iso+"T12:00:00");calM=new Date(cur.getFullYear(),cur.getMonth(),1,12);render();setCal(false);window.scrollTo(0,0)}
 function dirty(b){b._v=(b._v||0)+1;setBtn(b,"")}
 function flashSaved(b){b._v=(b._v||0)+1;var v=b._v;setBtn(b,"busy");setTimeout(function(){if(b._v===v)setBtn(b,"ready")},150)}
+var notesOpen=false;
 function setTick(btn,on,word){
   var h=btn.closest(".card").querySelector("h2"),sp=h.querySelector(".tick");
-  if(on&&!sp){sp=document.createElement("span");sp.className="tick";sp.textContent=word;h.appendChild(sp)}
-  else if(!on&&sp)h.removeChild(sp);
+  if(on&&!sp){sp=document.createElement("span");sp.className="tick";sp.textContent=word;var hb=h.querySelector("button");if(hb)hb.parentNode.insertBefore(sp,hb);else h.appendChild(sp)}
+  else if(!on&&sp)sp.parentNode.removeChild(sp);
 }
 function renderSide(){
   var day=data[key(cur)]||{},late=[],now=new Date().getHours();
@@ -348,9 +404,9 @@ function render(){
     '<textarea id="t_'+m.k+'" placeholder="What did you have?" style="margin:0;height:88px;resize:none">'+esc(e.text)+'</textarea><div class="col"><button class="sv" data-k="'+m.k+'">Save</button><button class="ghost" data-z="'+m.k+'">Clear</button><button class="ghost" data-f="'+m.k+'">Add to Fav</button><button class="ghost" data-p="'+m.k+'">★ Favourites</button></div><div class="favpanel" id="fp_'+m.k+'" hidden></div>'+
     '</div>';
   });
-  html+='<div class="card c-n"><h2><span>📝 Notes <span class="mute" id="nd"></span></span></h2>'+
-  '<textarea id="nt" rows="3" maxlength="1000" placeholder="Notes for this day (e.g. felt bloated, ate out)"></textarea>'+
-  '<div class="btnrow"><button class="sv" id="sn">Save</button><button class="ghost" id="cn">Clear</button></div></div>';
+  html+='<div class="card c-n"><h2><span>📝 Notes</span><span class="hr"><button class="ghost sm" id="nbt" aria-expanded="'+(notesOpen?"true":"false")+'">'+(notesOpen?"Hide":"Show")+'</button></span></h2>'+
+  '<div id="nbody"'+(notesOpen?'':' hidden')+'><textarea id="nt" rows="3" maxlength="1000" placeholder="Notes for this day (e.g. felt bloated, ate out)"></textarea>'+
+  '<div class="btnrow"><button class="sv" id="sn">Save</button><button class="ghost" id="cn">Clear</button></div></div></div>';
   html+='<div class="pair"><div class="card c-p"><h2>📊 Daily %'+(day.pct?'<span class="tick">✓</span>':'')+'</h2><input id="dp" type="text" inputmode="decimal" maxlength="5" placeholder="0-100 %" value="'+esc(day.pct)+'"><button class="sv" id="sp">Save</button></div>'+
   '<div class="card c-w"><h2>⚖️ Weight (kg)'+(day.wt?'<span class="tick">✓</span>':'')+'</h2><input id="dw" type="text" inputmode="decimal" maxlength="6" placeholder="e.g. 72.5" value="'+esc(day.wt)+'"><button class="sv" id="sw">Save</button></div></div>';
   document.getElementById("meals").innerHTML=html;
@@ -380,7 +436,7 @@ function render(){
   document.querySelectorAll("button[data-f]").forEach(function(b){b.onclick=function(){
     var t=document.getElementById("t_"+b.getAttribute("data-f")).value.trim();
     if(!t)return;
-    if(!favs.some(function(f){return f.toLowerCase()===t.toLowerCase()})){favs.push(t);if(favs.length>50)favs.shift();saveFavs()}
+    if(!favs.some(function(f){return f.toLowerCase()===t.toLowerCase()})){if(favs.length<200){favs.push(t);sortFavs();saveFavs()}}
     refreshFavs();
   }});
   document.querySelectorAll("button[data-p]").forEach(function(b){b.onclick=function(){
@@ -420,8 +476,14 @@ function render(){
     save();setTick(sw,v!=="","✓");flashSaved(sw);renderSide();
   };
   var nt=document.getElementById("nt"),sn=document.getElementById("sn");
+  document.getElementById("nbt").onclick=function(){
+    var b=document.getElementById("nbody");
+    b.hidden=!b.hidden;
+    notesOpen=!b.hidden;
+    this.textContent=notesOpen?"Hide":"Show";
+    this.setAttribute("aria-expanded",notesOpen?"true":"false");
+  };
   nt.value=day.note||"";
-  document.getElementById("nd").textContent="· "+cur.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"});
   setTick(sn,!!day.note,"✓ Saved");dirty(sn);
   nt.oninput=function(){dirty(sn)};
   sn.onclick=function(){
@@ -451,6 +513,9 @@ document.getElementById("xs").value=key(new Date());
 document.getElementById("xe").value=key(new Date());
 document.getElementById("xr").onchange=function(){document.getElementById("xc").style.display=this.value==="custom"?"flex":"none";resetBtns()};
 document.getElementById("xs").onchange=document.getElementById("xe").onchange=resetBtns;
+function flat(t,sep,strip){
+  return String(t||"").split(/\r?\n/).map(function(x){x=x.trim();return strip?x.replace(/[,;]+$/,""):x}).filter(Boolean).join(sep);
+}
 function getRows(){
   var v=document.getElementById("xr").value,end=new Date(),start=new Date();
   end.setHours(12,0,0,0);start.setHours(12,0,0,0);
@@ -470,7 +535,7 @@ function getRows(){
     MEALS.forEach(function(m){
       var e=day[m.k]||{};
       if(e.text)any=true;
-      r.push(e.text||"");
+      r.push(flat(e.text,", ",true));
     });
     var p=day.pct===""||day.pct==null?"":Number(day.pct);
     if(p!=="")any=true;
@@ -479,7 +544,7 @@ function getRows(){
     if(w!=="")any=true;
     r.push(w);
     if(day.note)any=true;
-    r.push(day.note||"");
+    r.push(flat(day.note," ",false));
     if(any)rows.push(r);
   }
   return {rows:rows,from:key(start),to:key(end)};
@@ -561,7 +626,7 @@ document.getElementById("xx").onclick=function(){
     ["xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],
     ["xl/worksheets/sheet1.xml",sheetXml(o.rows)]
   ]);
-  if(document.getElementById("xr").value==="all"){try{localStorage.setItem("mealbackup",String(Date.now()))}catch(e){}}
+  if(document.getElementById("xr").value==="all"){try{localStorage.setItem("mealbackup",String(Date.now()))}catch(e){}showBackup()}
   deliver(blob,"meal-log_"+o.from+"_to_"+o.to+".xlsx");
   setBtn(btn,"ready");
   }catch(e){msg("Excel export failed: "+(e&&e.message?e.message:e));setBtn(btn,"")}},80);
@@ -817,6 +882,12 @@ document.getElementById("smt").onclick=function(){
   this.textContent=b.hidden?"Show":"Hide";
   this.setAttribute("aria-expanded",b.hidden?"false":"true");
 };
+document.getElementById("wtt").onclick=function(){
+  var b=document.getElementById("wtbody");
+  b.hidden=!b.hidden;
+  this.textContent=b.hidden?"Show":"Hide";
+  this.setAttribute("aria-expanded",b.hidden?"false":"true");
+};
 document.getElementById("ft").onclick=function(){
   var b=document.getElementById("flbody");
   b.hidden=!b.hidden;
@@ -839,6 +910,34 @@ document.getElementById("tl").onclick=function(e){
 document.getElementById("te").onclick=function(){
   dlg("Permanently delete everything in Recently Deleted? This can't be undone.",false,"Empty",function(){trash=[];saveTrash();renderTrash();document.getElementById("tmsg").textContent=""});
 };
+function showBackup(){
+  var bk=0,el=document.getElementById("lb");
+  try{bk=Number(localStorage.getItem("mealbackup")||0)}catch(e){}
+  if(bk){el.textContent="💾 Last full backup: "+new Date(bk).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"});el.hidden=false}
+  else el.hidden=true;
+}
+function fillAbout(){
+  var ks=Object.keys(data).filter(function(k){return hasContent(data[k])}).sort(),bk=0;
+  try{bk=Number(localStorage.getItem("mealbackup")||0)}catch(e){}
+  document.getElementById("istats").innerHTML='<li>Days with records: <b>'+ks.length+'</b></li>'+(ks.length?'<li>First record: <b>'+ks[0]+'</b></li>':'')+'<li>Last full backup: <b>'+(bk?new Date(bk).toLocaleDateString(undefined,{day:"numeric",month:"short",year:"numeric"}):"never")+'</b></li>';
+}
+function showTab(t){
+  var h=t==="help";
+  document.getElementById("ihelp").hidden=!h;
+  document.getElementById("iabout").hidden=h;
+  document.getElementById("tabh").classList.toggle("on",h);
+  document.getElementById("taba").classList.toggle("on",!h);
+  if(!h)fillAbout();
+  document.getElementById(h?"ihelp":"iabout").scrollTop=0;
+}
+function closeInfo(){document.getElementById("info").hidden=true}
+document.getElementById("infob").onclick=function(){document.getElementById("info").hidden=false;showTab("help")};
+document.getElementById("tabh").onclick=function(){showTab("help")};
+document.getElementById("taba").onclick=function(){showTab("about")};
+document.getElementById("infox").onclick=closeInfo;
+document.getElementById("info").onclick=function(e){if(e.target===this)closeInfo()};
+document.addEventListener("keydown",function(e){if(e.key==="Escape")closeInfo()});
+showBackup();
 refreshFavs();
 render();
 </script>
