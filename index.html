@@ -150,7 +150,11 @@ body{background:#fff!important;color:#000!important}
 <select id="sm"><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select>
 <div class="tiles" id="st"></div></div></div>
 <div class="card c-f"><h2><span>★ Favourite meals</span><button class="ghost sm" id="ft" aria-expanded="false">Show</button></h2>
-<div id="flbody" hidden><div class="hist" id="fl" style="margin-top:8px"></div></div></div>
+<div id="flbody" hidden><div class="hist" id="fl" style="margin-top:8px"></div>
+<button class="xb" id="fx" style="width:100%;margin-top:8px">Export to Excel</button>
+<div class="hist" style="margin-top:8px">Import from an Excel file:</div>
+<input type="file" id="fi" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" style="margin-top:4px">
+<div class="hist" id="fm" style="margin-top:2px"></div></div></div>
 <div class="group" id="recgroup">
 <div class="grouphead"><h3>Records</h3><button class="ghost sm" id="rt" aria-expanded="false">Show</button></div>
 <div id="recbody" hidden>
@@ -191,7 +195,7 @@ body{background:#fff!important;color:#000!important}
 <h4>Log a day</h4>
 <p>Type what you ate in Breakfast, Lunch or Dinner and tap <b>Save</b>. You can put each item on its own line. <b>Clear</b> removes the saved meal. Daily % (0–100) and Weight (kg) are one entry per day, each with its own Save button.</p>
 <h4>Favourites</h4>
-<p><b>Add to Fav</b> saves the text in the box to your favourites, kept in A–Z order. <b>★ Favourites</b> lets you tick several and add them to the box. Manage the list in the Favourite meals card.</p>
+<p><b>Add to Fav</b> saves the text in the box to your favourites, kept in A–Z order. <b>★ Favourites</b> lets you tick several and add them to the box. Manage the list in the Favourite meals card, where you can also export it to Excel and import it back.</p>
 <h4>Go to another day</h4>
 <p>Tap the green <b>Today ▾</b> bar to open the calendar and pick any date, or use the ‹ › arrows. Dark green days have all 3 meals, light green days have some.</p>
 <h4>Notes, Summary and Weight trend</h4>
@@ -216,6 +220,8 @@ body{background:#fff!important;color:#000!important}
 <h4>Your data</h4>
 <p>Everything is stored on this device, in the browser’s local storage. There is no account and nothing is sent anywhere. Removing the app from the Home Screen or clearing website data erases it, so keep your backups.</p>
 <ul id="istats"></ul>
+<h4>Original creator</h4>
+<p><b>mgndcode</b></p>
 <h4>Built with</h4>
 <p>Created with Claude (Anthropic) as a single web page and hosted on GitHub Pages.</p>
 </div>
@@ -236,6 +242,7 @@ function sortFavs(){favs.sort(function(a,b){return String(a).localeCompare(Strin
 sortFavs();
 function saveFavs(){try{localStorage.setItem("mealfavs",JSON.stringify(favs))}catch(e){}}
 function refreshFavs(){
+  var fxb=document.getElementById("fx");if(fxb)setBtn(fxb,"");
   document.querySelectorAll(".favpanel").forEach(function(p){p.hidden=true;p.innerHTML=""});
   document.getElementById("fl").innerHTML=favs.length?favs.map(function(f,i){return '<div><span>'+esc(f)+'</span><button class="ghost sm" data-x="'+i+'">✕</button></div>'}).join(""):"No favourites yet. Type a meal and tap Add to Fav.";
 }
@@ -598,8 +605,23 @@ function zip(files){
   e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,size,true);e.setUint32(16,off,true);
   return new Blob(parts.concat(cd,[e.buffer]),{type:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
 }
-function deliver(blob,name){
-  var f=null,url=URL.createObjectURL(blob),m=document.getElementById("xm");
+function xlsxFiles(sheet,title){
+  var X='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>';
+  return [
+    ["[Content_Types].xml",X+'<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],
+    ["_rels/.rels",X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ["xl/workbook.xml",X+'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+x(title)+'" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+    ["xl/_rels/workbook.xml.rels",X+'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],
+    ["xl/worksheets/sheet1.xml",sheet]
+  ];
+}
+function favSheetXml(list){
+  var xml='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="50" customWidth="1"/></cols><sheetData>';
+  ["Favourites"].concat(list).forEach(function(t,i){xml+='<row r="'+(i+1)+'"><c r="A'+(i+1)+'" t="inlineStr"><is><t>'+x(t)+'</t></is></c></row>'});
+  return xml+'</sheetData></worksheet>';
+}
+function deliver(blob,name,mid){
+  var f=null,url=URL.createObjectURL(blob),m=document.getElementById(mid||"xm");
   try{f=new File([blob],name,{type:blob.type})}catch(e){}
   m.innerHTML="";
   var t=document.createElement("span");
@@ -619,13 +641,7 @@ document.getElementById("xx").onclick=function(){
   if(!o){setBtn(btn,"");return}
   setBtn(btn,"busy");
   setTimeout(function(){try{
-  var blob=zip([
-    ["[Content_Types].xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],
-    ["_rels/.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
-    ["xl/workbook.xml",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Meal Log" sheetId="1" r:id="rId1"/></sheets></workbook>'],
-    ["xl/_rels/workbook.xml.rels",'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],
-    ["xl/worksheets/sheet1.xml",sheetXml(o.rows)]
-  ]);
+  var blob=zip(xlsxFiles(sheetXml(o.rows),"Meal Log"));
   if(document.getElementById("xr").value==="all"){try{localStorage.setItem("mealbackup",String(Date.now()))}catch(e){}showBackup()}
   deliver(blob,"meal-log_"+o.from+"_to_"+o.to+".xlsx");
   setBtn(btn,"ready");
@@ -937,6 +953,39 @@ document.getElementById("taba").onclick=function(){showTab("about")};
 document.getElementById("infox").onclick=closeInfo;
 document.getElementById("info").onclick=function(e){if(e.target===this)closeInfo()};
 document.addEventListener("keydown",function(e){if(e.key==="Escape")closeInfo()});
+document.getElementById("fx").onclick=function(){
+  var btn=this,fm=document.getElementById("fm");
+  if(!favs.length){fm.textContent="No favourites to export yet.";setBtn(btn,"");return}
+  fm.textContent="";setBtn(btn,"busy");
+  setTimeout(function(){
+    try{deliver(zip(xlsxFiles(favSheetXml(favs),"Favourites")),"meal-log_favourites_"+key(new Date())+".xlsx","fm");setBtn(btn,"ready")}
+    catch(e){fm.textContent="Export failed: "+(e&&e.message?e.message:e);setBtn(btn,"")}
+  },80);
+};
+document.getElementById("fi").onchange=async function(){
+  var f=this.files&&this.files[0],el=this,fm=document.getElementById("fm");
+  if(!f)return;
+  try{
+    if(/\.pdf$/i.test(f.name))throw new Error("Please choose an Excel (.xlsx) file.");
+    var rows=await parseXlsx(await f.arrayBuffer()),col=0,start=0,found=false;
+    for(var i=0;i<rows.length&&!found;i++){
+      (rows[i]||[]).forEach(function(c,j){
+        var t=String(c).trim().toLowerCase();
+        if(!found&&(t==="favourites"||t==="favorites"||t==="favourite meals")){found=true;col=j;start=i+1}
+      });
+    }
+    var added=0,seen=0;
+    for(var r=start;r<rows.length;r++){
+      var v=flat((rows[r]||[])[col],", ",true);
+      if(!v)continue;
+      seen++;
+      if(favs.length<200&&!favs.some(function(f2){return f2.toLowerCase()===v.toLowerCase()})){favs.push(v);added++}
+    }
+    sortFavs();saveFavs();refreshFavs();
+    fm.textContent=seen?added+" new favourite"+(added===1?"":"s")+" added"+(seen>added?" ("+(seen-added)+" already in your list)":"")+".":"No favourites found in "+f.name+".";
+  }catch(e){fm.textContent="Import failed: "+(e&&e.message?e.message:e)}
+  el.value="";
+};
 showBackup();
 refreshFavs();
 render();
